@@ -25,8 +25,9 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Streamlit
-.streamlit/
+# Streamlit secrets only; config.toml is tracked for theme
+.streamlit/secrets.toml
+.streamlit/credentials.toml
 
 # Cache
 cache/

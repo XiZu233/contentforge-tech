@@ -38,33 +38,23 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap');
 
-    :root {
-        --vellum: #faf9f5;
-        --ink: #141413;
-        --onyx: #1f1e1d;
-        --graphite: #3d3d3a;
-        --dusty: #73726c;
-        --stone: #9c9a92;
-        --parchment: #dedcd1;
-        --snow: #ffffff;
-        --terra: #d97757;
-        --radius: 9.6px;
-    }
+    /* 全局字体覆盖 */
+    html, body, [class*="st"] { font-family: 'Inter', -apple-system, sans-serif !important; }
 
-    .block-container { max-width: 900px; padding-top: 2rem; }
+    .block-container { max-width: 900px !important; padding-top: 2rem !important; }
 
     .main-title {
-        font-family: 'Lora', Georgia, serif;
-        font-size: 2rem;
-        font-weight: 400;
-        color: var(--ink);
-        letter-spacing: -0.5px;
-        margin-bottom: 0.25rem;
+        font-family: 'Lora', Georgia, serif !important;
+        font-size: 2rem !important;
+        font-weight: 400 !important;
+        color: #141413 !important;
+        letter-spacing: -0.5px !important;
+        margin-bottom: 0.25rem !important;
     }
     .subtitle {
-        font-size: 0.95rem;
-        color: var(--graphite);
-        margin-bottom: 2rem;
+        font-size: 0.95rem !important;
+        color: #3d3d3a !important;
+        margin-bottom: 2rem !important;
     }
     .platform-badge {
         display: inline-block;
@@ -80,23 +70,23 @@ st.markdown("""
     .badge-xiaohongshu { background: #ff2442; color: white; }
     .score-excellent { color: #1a8c5e; font-weight: 600; }
     .score-pass { color: #c47a2a; font-weight: 600; }
-    .score-fail { color: var(--terra); font-weight: 600; }
+    .score-fail { color: #d97757; font-weight: 600; }
     .content-card {
-        background: var(--snow);
-        border: 1px solid var(--parchment);
-        border-radius: var(--radius);
+        background: #ffffff !important;
+        border: 1px solid #dedcd1 !important;
+        border-radius: 9.6px !important;
         padding: 24px;
         margin: 12px 0;
     }
     .tweet-box {
-        background: var(--snow);
-        border: 1px solid var(--parchment);
-        border-radius: var(--radius);
+        background: #ffffff !important;
+        border: 1px solid #dedcd1 !important;
+        border-radius: 9.6px !important;
         padding: 16px;
         margin: 8px 0;
     }
     .tweet-number {
-        color: var(--terra);
+        color: #d97757 !important;
         font-weight: 600;
         font-size: 0.85rem;
     }
@@ -105,7 +95,7 @@ st.markdown("""
     /* Alert banner */
     .alert-banner {
         padding: 18px 20px;
-        border-radius: var(--radius);
+        border-radius: 9.6px;
         margin-bottom: 28px;
         display: flex;
         align-items: flex-start;
@@ -113,43 +103,43 @@ st.markdown("""
         background: rgba(217, 119, 87, 0.06);
         border: 1px solid rgba(217, 119, 87, 0.12);
     }
-    .alert-banner .title { font-weight: 500; margin-bottom: 6px; color: var(--ink); font-size: 14px; }
-    .alert-banner .desc { font-size: 13px; color: var(--graphite); margin-bottom: 12px; line-height: 1.5; }
+    .alert-banner .title { font-weight: 500; margin-bottom: 6px; color: #141413; font-size: 14px; }
+    .alert-banner .desc { font-size: 13px; color: #3d3d3a; margin-bottom: 12px; line-height: 1.5; }
     .code-block {
-        background: var(--snow);
-        border: 1px solid var(--parchment);
-        border-radius: var(--radius);
+        background: #ffffff !important;
+        border: 1px solid #dedcd1 !important;
+        border-radius: 9.6px !important;
         padding: 14px 16px;
         font-family: 'SF Mono', Monaco, monospace;
         font-size: 12.5px;
         line-height: 1.7;
     }
-    .code-block .comment { color: var(--stone); }
-    .code-block .key { color: var(--terra); }
+    .code-block .comment { color: #9c9a92; }
+    .code-block .key { color: #d97757; }
     .code-block .val { color: #1a8c5e; }
 
     /* Score ring */
     .score-ring {
         width: 64px; height: 64px; border-radius: 50%;
-        background: conic-gradient(var(--terra) var(--score-pct), var(--parchment) var(--score-pct));
+        background: conic-gradient(#d97757 var(--score-pct), #dedcd1 var(--score-pct));
         display: flex; align-items: center; justify-content: center; position: relative; flex-shrink: 0;
     }
     .score-ring::after {
-        content: ''; width: 52px; height: 52px; background: var(--snow); border-radius: 50%; position: absolute;
+        content: ''; width: 52px; height: 52px; background: #ffffff; border-radius: 50%; position: absolute;
     }
     .score-ring-value {
         position: relative; z-index: 1;
-        font-family: 'Lora', Georgia, serif; font-size: 18px; font-weight: 600; color: var(--terra);
+        font-family: 'Lora', Georgia, serif; font-size: 18px; font-weight: 600; color: #d97757;
     }
 
     /* Section label */
     .section-label {
-        font-size: 11px; font-weight: 600; color: var(--dusty);
+        font-size: 11px; font-weight: 600; color: #73726c;
         text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px;
     }
 
-    /* Sidebar width fix */
-    [data-testid="stSidebar"] { min-width: 320px !important; max-width: 340px !important; }
+    /* Sidebar width fix - 更具体的选择器 */
+    section[data-testid="stSidebar"] > div { width: 320px !important; min-width: 320px !important; }
 </style>
 """, unsafe_allow_html=True)
 
