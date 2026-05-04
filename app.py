@@ -23,12 +23,12 @@ from core.extractor import extract_content
 from core.generator import AIGenerator
 from core.adapter import PlatformAdapter
 from core.scorer import QualityScorer
+from core.models import UnifiedLLMClient, PROVIDERS
 
 
 # ============= 页面配置 =============
 st.set_page_config(
     page_title="ContentForge Tech",
-    page_icon="🔥",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -36,15 +36,34 @@ st.set_page_config(
 # ============= 自定义CSS =============
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap');
+
+    :root {
+        --vellum: #faf9f5;
+        --ink: #141413;
+        --onyx: #1f1e1d;
+        --graphite: #3d3d3a;
+        --dusty: #73726c;
+        --stone: #9c9a92;
+        --parchment: #dedcd1;
+        --snow: #ffffff;
+        --terra: #d97757;
+        --radius: 9.6px;
+    }
+
+    .block-container { max-width: 900px; padding-top: 2rem; }
+
     .main-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #1a1a2e;
-        margin-bottom: 0.5rem;
+        font-family: 'Lora', Georgia, serif;
+        font-size: 2rem;
+        font-weight: 400;
+        color: var(--ink);
+        letter-spacing: -0.5px;
+        margin-bottom: 0.25rem;
     }
     .subtitle {
-        font-size: 1.1rem;
-        color: #666;
+        font-size: 0.95rem;
+        color: var(--graphite);
         margin-bottom: 2rem;
     }
     .platform-badge {
@@ -59,31 +78,78 @@ st.markdown("""
     .badge-x { background: #1a1a2e; color: white; }
     .badge-zhihu { background: #0066ff; color: white; }
     .badge-xiaohongshu { background: #ff2442; color: white; }
-    .score-excellent { color: #00c853; font-weight: 700; }
-    .score-pass { color: #ff9100; font-weight: 700; }
-    .score-fail { color: #ff1744; font-weight: 700; }
+    .score-excellent { color: #1a8c5e; font-weight: 600; }
+    .score-pass { color: #c47a2a; font-weight: 600; }
+    .score-fail { color: var(--terra); font-weight: 600; }
     .content-card {
-        background: #f8f9fa;
-        border-radius: 12px;
-        padding: 20px;
-        margin: 10px 0;
-        border: 1px solid #e9ecef;
+        background: var(--snow);
+        border: 1px solid var(--parchment);
+        border-radius: var(--radius);
+        padding: 24px;
+        margin: 12px 0;
     }
     .tweet-box {
-        background: white;
-        border: 1px solid #e1e8ed;
-        border-radius: 12px;
+        background: var(--snow);
+        border: 1px solid var(--parchment);
+        border-radius: var(--radius);
         padding: 16px;
         margin: 8px 0;
     }
     .tweet-number {
-        color: #1da1f2;
+        color: var(--terra);
         font-weight: 600;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
     }
-    .copy-btn {
-        float: right;
+    .copy-btn { float: right; }
+
+    /* Alert banner */
+    .alert-banner {
+        padding: 18px 20px;
+        border-radius: var(--radius);
+        margin-bottom: 28px;
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        background: rgba(217, 119, 87, 0.06);
+        border: 1px solid rgba(217, 119, 87, 0.12);
     }
+    .alert-banner .title { font-weight: 500; margin-bottom: 6px; color: var(--ink); font-size: 14px; }
+    .alert-banner .desc { font-size: 13px; color: var(--graphite); margin-bottom: 12px; line-height: 1.5; }
+    .code-block {
+        background: var(--snow);
+        border: 1px solid var(--parchment);
+        border-radius: var(--radius);
+        padding: 14px 16px;
+        font-family: 'SF Mono', Monaco, monospace;
+        font-size: 12.5px;
+        line-height: 1.7;
+    }
+    .code-block .comment { color: var(--stone); }
+    .code-block .key { color: var(--terra); }
+    .code-block .val { color: #1a8c5e; }
+
+    /* Score ring */
+    .score-ring {
+        width: 64px; height: 64px; border-radius: 50%;
+        background: conic-gradient(var(--terra) var(--score-pct), var(--parchment) var(--score-pct));
+        display: flex; align-items: center; justify-content: center; position: relative; flex-shrink: 0;
+    }
+    .score-ring::after {
+        content: ''; width: 52px; height: 52px; background: var(--snow); border-radius: 50%; position: absolute;
+    }
+    .score-ring-value {
+        position: relative; z-index: 1;
+        font-family: 'Lora', Georgia, serif; font-size: 18px; font-weight: 600; color: var(--terra);
+    }
+
+    /* Section label */
+    .section-label {
+        font-size: 11px; font-weight: 600; color: var(--dusty);
+        text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px;
+    }
+
+    /* Sidebar width fix */
+    [data-testid="stSidebar"] { min-width: 320px !important; max-width: 340px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -106,7 +172,10 @@ init_session_state()
 
 # ============= 检查API状态 =============
 def check_api_status():
-    status = {"claude": bool(os.getenv("ANTHROPIC_API_KEY")), "openai": bool(os.getenv("OPENAI_API_KEY"))}
+    client = UnifiedLLMClient()
+    status = {}
+    for key in PROVIDERS:
+        status[key] = client.is_available(key)
     st.session_state.api_status = status
     return status
 
@@ -114,44 +183,51 @@ def check_api_status():
 # ============= 侧边栏配置 =============
 def render_sidebar():
     with st.sidebar:
-        st.markdown("### ⚙️ 配置")
+        st.markdown("### 配置")
 
         # API状态
         api_status = check_api_status()
-        st.markdown("**API状态**")
-        col1, col2 = st.columns(2)
-        with col1:
-            if api_status["claude"]:
-                st.success("Claude ✅")
-            else:
-                st.error("Claude ❌")
-        with col2:
-            if api_status["openai"]:
-                st.success("OpenAI ✅")
-            else:
-                st.error("OpenAI ❌")
+        st.markdown("**API 状态**")
 
-        if not any(api_status.values()):
-            st.warning("请在 .env 文件中设置至少一个API密钥")
+        # 显示所有 provider 状态
+        provider_names = {
+            "kimi": "Kimi",
+            "gemini": "Gemini",
+            "openai": "OpenAI",
+            "local": "本地",
+        }
+        for key, name in provider_names.items():
+            if api_status.get(key):
+                st.success(f"{name}")
+            else:
+                st.error(f"{name}")
+
+        available_count = sum(api_status.values())
+        if available_count == 0:
+            st.warning("请在 .env 文件中设置至少一个 API 密钥")
+        else:
+            st.caption(f"已配置 {available_count} 个模型，将按优先级自动降级")
 
         st.divider()
 
-        # AI模型选择
-        available_models = []
-        if api_status["claude"]:
-            available_models.append("claude")
-        if api_status["openai"]:
-            available_models.append("openai")
-
-        if not available_models:
-            available_models = ["claude"]  # 默认
-
-        selected_model = st.selectbox(
-            "AI模型",
-            options=available_models,
-            index=0,
-            help="主模型失败时自动回退到另一个模型",
+        # 本地模型开关
+        st.markdown("**本地模型**")
+        enable_local = st.checkbox(
+            "启用 Ollama 本地模型",
+            value=api_status.get("local", False),
+            help="需先运行 ollama serve（默认 localhost:11434）",
         )
+
+        # 构建优先级链
+        priority_chain = []
+        for key in ["kimi", "gemini", "openai"]:
+            if api_status.get(key):
+                priority_chain.append(key)
+        if enable_local and api_status.get("local"):
+            priority_chain.append("local")
+
+        if not priority_chain:
+            priority_chain = ["openai"]  # 兜底
 
         st.divider()
 
@@ -178,17 +254,17 @@ def render_sidebar():
                 help="AI会学习你的写作风格",
             )
 
-        return selected_model, selected_platforms, enable_score, show_raw, style_text
+        return priority_chain, selected_platforms, enable_score, show_raw, style_text
 
 
 # ============= 主页面 =============
 def render_header():
-    st.markdown('<div class="main-title">🔥 ContentForge Tech</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">技术博客 → 多平台社交内容一键生成</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">ContentForge Tech</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">技术博客  多平台社交内容一键生成</div>', unsafe_allow_html=True)
 
 
 def render_input_section():
-    st.markdown("### 📥 内容输入")
+    st.markdown("### 内容输入")
 
     input_method = st.radio(
         "选择输入方式",
@@ -227,7 +303,7 @@ def render_results(results: dict, enable_score: bool):
         return
 
     st.markdown("---")
-    st.markdown("### 📤 生成结果")
+    st.markdown("### 生成结果")
 
     # 平台标签
     platform_names = {"x": "X / Twitter", "zhihu": "知乎", "xiaohongshu": "小红书"}
@@ -249,19 +325,32 @@ def render_results(results: dict, enable_score: bool):
 
                 score_class = "score-excellent" if total >= 8.5 else "score-pass" if total >= 7.0 else "score-fail"
 
-                cols = st.columns([1, 2, 2])
+                score_pct = int(total * 10)
+                cols = st.columns([1, 3])
                 with cols[0]:
-                    st.markdown(f'<div class="{score_class}" style="font-size: 2rem;">{total}</div>', unsafe_allow_html=True)
-                    st.caption("质量评分 /10")
+                    st.markdown(f'''
+                    <div style="display:flex;align-items:center;gap:18px;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--parchment);">
+                        <div style="width:64px;height:64px;border-radius:50%;background:conic-gradient(#d97757 {score_pct}%, #dedcd1 {score_pct}%);display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;">
+                            <div style="width:52px;height:52px;background:#fff;border-radius:50%;position:absolute;"></div>
+                            <span style="position:relative;z-index:1;font-family:'Lora',Georgia,serif;font-size:18px;font-weight:600;color:#d97757;">{total}</span>
+                        </div>
+                        <div>
+                            <div style="font-weight:500;margin-bottom:4px;font-size:15px;">质量评分</div>
+                            <div style="font-size:13px;color:#73726c;line-height:1.5;">信息完整性 · 平台适配度 · 语言流畅度 · 技术准确性</div>
+                        </div>
+                    </div>
+                    ''', unsafe_allow_html=True)
                 with cols[1]:
-                    if score.get("suggestions"):
-                        st.markdown("**改进建议**")
-                        for s in score["suggestions"]:
-                            st.markdown(f"- {s}")
-                with cols[2]:
-                    with st.expander("详细评分"):
-                        for name, value in score.get("scores", {}).items():
-                            st.markdown(f"- {name}: {value}")
+                    inner_cols = st.columns(2)
+                    with inner_cols[0]:
+                        if score.get("suggestions"):
+                            st.markdown("**改进建议**")
+                            for s in score["suggestions"]:
+                                st.markdown(f"- {s}")
+                    with inner_cols[1]:
+                        with st.expander("详细评分"):
+                            for name, value in score.get("scores", {}).items():
+                                st.markdown(f"- {name}: {value}")
 
                 st.divider()
 
@@ -314,7 +403,7 @@ def render_zhihu_content(content: dict):
         return
 
     st.markdown(f"**字符数**: {content.get('char_count', len(text))}")
-    st.markdown(f"**含代码块**: {'✅' if content.get('has_code_blocks') else '❌'}")
+    st.markdown(f"**含代码块**: {'是' if content.get('has_code_blocks') else '否'}")
 
     st.divider()
 
@@ -352,14 +441,14 @@ def render_xiaohongshu_content(content: dict):
 
     # 正文
     st.markdown("**正文**")
-    st.markdown(f'<div style="background: #fff5f7; padding: 16px; border-radius: 12px; border: 1px solid #ffd1dc;">{text}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="background: #faf9f5; padding: 16px; border-radius: 9.6px; border: 1px solid #dedcd1;">{text}</div>', unsafe_allow_html=True)
 
     st.caption(f"{content.get('char_count', len(text))} 字符")
 
     # 配图提示词
     if image_prompt:
         st.divider()
-        st.markdown("**🎨 配图提示词**")
+        st.markdown("**配图提示词**")
         st.info(image_prompt)
         st_copy_button(image_prompt, "copy_xhs_image", "复制提示词")
 
@@ -377,16 +466,21 @@ def st_copy_button(text: str, key: str, label: str = "复制"):
     escaped_text = html.escape(text).replace("\n", "\\n")
     button_html = f"""
     <button
-        onclick="navigator.clipboard.writeText('{escaped_text}'); this.innerText='已复制 ✅'; setTimeout(() => this.innerText='{label}', 2000);"
+        onclick="navigator.clipboard.writeText('{escaped_text}'); this.innerText='已复制'; setTimeout(() => this.innerText='{label}', 2000);"
         style="
-            background: #0066ff;
-            color: white;
+            background: #141413;
+            color: #ffffff;
             border: none;
-            padding: 6px 16px;
-            border-radius: 6px;
+            padding: 8px 16px;
+            border-radius: 9.6px;
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 13px;
+            font-weight: 400;
+            font-family: 'Inter', -apple-system, sans-serif;
+            transition: all 0.2s ease;
         "
+        onmouseover="this.style.background='#1f1e1d'"
+        onmouseout="this.style.background='#141413'"
     >
         {label}
     </button>
@@ -399,17 +493,26 @@ def main():
     render_header()
 
     # 侧边栏配置
-    selected_model, selected_platforms, enable_score, show_raw, style_text = render_sidebar()
+    priority_chain, selected_platforms, enable_score, show_raw, style_text = render_sidebar()
 
     # 检查是否有可用API
     api_status = check_api_status()
     if not any(api_status.values()):
-        st.error("⚠️ 未检测到任何API密钥。请在项目根目录创建 `.env` 文件并填入密钥。")
-        st.code("""
-# .env 文件示例
-ANTHROPIC_API_KEY=your_key_here
-OPENAI_API_KEY=your_key_here
-""", language="bash")
+        st.markdown("""
+        <div class="alert-banner">
+            <div class="content">
+                <div class="title">未检测到任何 API 密钥</div>
+                <div class="desc">请在项目根目录创建 .env 文件并填入密钥</div>
+                <div class="code-block">
+                    <span class="comment"># .env 文件示例</span><br>
+                    <span class="key">MODEL_PRIORITY</span>=<span class="val">kimi,gemini,openai</span><br>
+                    <span class="key">KIMI_API_KEY</span>=<span class="val">your_key_here</span><br>
+                    <span class="key">GEMINI_API_KEY</span>=<span class="val">your_key_here</span><br>
+                    <span class="key">OPENAI_API_KEY</span>=<span class="val">your_key_here</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         st.stop()
 
     # 输入区
@@ -418,7 +521,7 @@ OPENAI_API_KEY=your_key_here
     # 生成按钮
     st.markdown("---")
     generate_clicked = st.button(
-        "🚀 生成多平台内容",
+        "生成多平台内容",
         type="primary",
         use_container_width=True,
         disabled=not source or not selected_platforms,
@@ -451,7 +554,7 @@ OPENAI_API_KEY=your_key_here
             status_text.text("正在初始化AI引擎...")
             progress_bar.progress(0.3)
 
-            generator = AIGenerator(model=selected_model)
+            generator = AIGenerator(providers=priority_chain)
 
             # 学习风格
             if style_text.strip():
@@ -503,7 +606,7 @@ OPENAI_API_KEY=your_key_here
 
             progress_bar.progress(1.0)
             status_text.text("生成完成！")
-            st.success(f"✅ 已为 {len(results)} 个平台生成内容")
+            st.success(f"已为 {len(results)} 个平台生成内容")
 
         except Exception as e:
             st.error(f"生成失败: {e}")
@@ -516,7 +619,7 @@ OPENAI_API_KEY=your_key_here
 
     # 页脚
     st.markdown("---")
-    st.caption("ContentForge Tech | 技术博客多平台内容生成器 | Built with Streamlit + Claude API")
+    st.caption("ContentForge Tech  技术博客多平台内容生成器  Built with Streamlit + Claude API")
 
 
 if __name__ == "__main__":

@@ -1,104 +1,36 @@
 """
-AI生成引擎：调用Claude/OpenAI API生成各平台内容
+AI生成引擎：调用多厂商LLM API生成各平台内容
 """
 
 import os
 import json
 import re
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from config.prompts import get_prompt, STYLE_LEARNING_PROMPT
 from config.platforms import detect_language
+from core.models import UnifiedLLMClient, PROVIDERS
 
 
 class AIGenerator:
     """AI内容生成器"""
 
-    def __init__(self, model: Optional[str] = None):
-        self.model = model or os.getenv("DEFAULT_AI_MODEL", "claude")
-        self.anthropic_client = None
-        self.openai_client = None
+    def __init__(self, providers: Optional[List[str]] = None):
+        """
+        Args:
+            providers: 优先级列表，如 ["kimi", "gemini", "openai"]
+                      为None时从环境变量 MODEL_PRIORITY 读取
+        """
+        self.client = UnifiedLLMClient(providers)
         self.style_config: Optional[Dict[str, Any]] = None
 
-        # 初始化API客户端
-        if self.model == "claude":
-            self._init_anthropic()
-        elif self.model == "openai":
-            self._init_openai()
-        else:
-            # 默认先尝试Claude，失败时回退到OpenAI
-            try:
-                self._init_anthropic()
-            except Exception:
-                self._init_openai()
-
-    def _init_anthropic(self):
-        """初始化Anthropic客户端"""
-        try:
-            import anthropic
-            api_key = os.getenv("ANTHROPIC_API_KEY")
-            if not api_key:
-                raise ValueError("ANTHROPIC_API_KEY未设置")
-            self.anthropic_client = anthropic.Anthropic(api_key=api_key)
-            self.model = "claude"
-        except ImportError:
-            raise ImportError("请安装anthropic库: pip install anthropic")
-
-    def _init_openai(self):
-        """初始化OpenAI客户端"""
-        try:
-            from openai import OpenAI
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                raise ValueError("OPENAI_API_KEY未设置")
-            self.openai_client = OpenAI(api_key=api_key)
-            self.model = "openai"
-        except ImportError:
-            raise ImportError("请安装openai库: pip install openai")
-
-    def _call_claude(self, prompt: str, max_tokens: int = 4000) -> str:
-        """调用Claude API"""
-        if not self.anthropic_client:
-            self._init_anthropic()
-
-        response = self.anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=max_tokens,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return response.content[0].text
-
-    def _call_openai(self, prompt: str, max_tokens: int = 4000) -> str:
-        """调用OpenAI API"""
-        if not self.openai_client:
-            self._init_openai()
-
-        response = self.openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            max_tokens=max_tokens,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return response.choices[0].message.content
-
     def _call_ai(self, prompt: str, max_tokens: int = 4000) -> str:
-        """统一调用AI API"""
-        try:
-            if self.model == "claude":
-                return self._call_claude(prompt, max_tokens)
-            else:
-                return self._call_openai(prompt, max_tokens)
-        except Exception as e:
-            # 失败时回退到另一个模型
-            print(f"主模型调用失败({self.model}): {e}，尝试回退...")
-            if self.model == "claude":
-                self.model = "openai"
-                return self._call_openai(prompt, max_tokens)
-            else:
-                self.model = "claude"
-                return self._call_claude(prompt, max_tokens)
+        """统一调用AI API（自动降级）"""
+        messages = [{"role": "user", "content": prompt}]
+        return self.client.chat(messages=messages, max_tokens=max_tokens)
 
     def learn_style(self, reference_texts: str) -> Dict[str, Any]:
         """
