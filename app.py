@@ -409,7 +409,7 @@ def main():
 # .env 文件示例
 ANTHROPIC_API_KEY=your_key_here
 OPENAI_API_KEY=your_key_here
-        "", language="bash")
+""", language="bash")
         st.stop()
 
     # 输入区
