@@ -51,11 +51,22 @@ Streamlit官方提供的免费托管服务，无需服务器，一键部署。
 
 4. **配置Secrets**
    - 在应用设置中找到 "Secrets"
-   - 添加以下配置：
+   - 添加以下配置（至少配置一个）：
    ```toml
-   ANTHROPIC_API_KEY = "your_key_here"
-   OPENAI_API_KEY = "your_key_here"
+   # 模型优先级链（可选，默认: kimi,gemini,openai）
+   MODEL_PRIORITY = "kimi,gemini,openai"
+
+   # 月之暗面 Kimi
+   KIMI_API_KEY = "your_kimi_key_here"
+
+   # Google Gemini
+   GEMINI_API_KEY = "your_gemini_key_here"
+
+   # OpenAI
+   OPENAI_API_KEY = "your_openai_key_here"
    ```
+
+   **注意**：配置多个模型时，系统会按 `MODEL_PRIORITY` 的顺序自动尝试，失败时自动降级到下一个。
 
 5. **部署**
    - 点击 "Deploy"
